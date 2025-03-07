@@ -1,7 +1,9 @@
 {
   "name": "noticias",
   "integrations": {
-    "cordova": {}
+    "cordova": {
+      "enabled": false
+    }
   },
   "type": "angular"
 }

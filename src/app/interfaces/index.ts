@@ -5,22 +5,20 @@ export interface NewResponse
   articles:     Article[];
 }
 
-export interface Article
-{
-  source:       Source;
-  author?:      string;
-  title:        string;
-  description?: string;
-  url:          string;
-  urlToImage?:  string;
-  publishedAt:  string;
-  content?:     string;
+export interface Article {
+  source: Source;
+  author?: string | null;
+  title: string;
+  description?: string | null;
+  url: string;
+  urlToImage?: string | null;
+  publishedAt: string;
+  content?: string | null; // Permite que content sea string o null
 }
 
-export interface Source
-{
-  id?:   string;
-  name:   string;
+export interface Source {
+  id?: string | null | undefined; // id puede ser string, null o undefined
+  name: string;
 }
 
 export interface ArticleByCategoryAndPage

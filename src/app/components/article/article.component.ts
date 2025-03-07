@@ -1,11 +1,10 @@
 import { Component, Input, OnInit } from '@angular/core';
 import { Article } from 'src/app/interfaces';
-import { InAppBrowser } from '@awesome-cordova-plugins/in-app-browser';
-import { ActionSheetButton, ActionSheetController, Platform } from '@ionic/angular';
-//import { Share } from '@capacitor/share';
-import { SocialSharing } from '@awesome-cordova-plugins/social-sharing/ngx';
+import { ActionSheetButton, ActionSheetController } from '@ionic/angular';
+import { Share } from '@capacitor/share';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 import { StorageService } from 'src/app/services/storage.service';
-
 
 @Component({
   selector: 'app-article',
@@ -13,37 +12,26 @@ import { StorageService } from 'src/app/services/storage.service';
   styleUrls: ['./article.component.scss'],
   standalone: false,
 })
-export class ArticleComponent  implements OnInit {
+export class ArticleComponent implements OnInit {
   @Input() article: Article | undefined;
   @Input() index: number = 0;
 
   constructor(
-    private platfform: Platform,
     private actionSheetCtrl: ActionSheetController,
-    private socialShare: SocialSharing,
-    private storageService: StorageService,
-
+    private storageService: StorageService
   ) { }
 
   ngOnInit() {}
 
-
   async onOpenMenu() {
-    let articleInFavorite = false; // Definir la variable antes del if
-
-    if (this.article) {
-      articleInFavorite = this.storageService.articleInFavorite(this.article);
-    } else {
+    if (!this.article) {
       console.error("Error: article es undefined");
+      return;
     }
 
-    const shareBtn: ActionSheetButton = {
-      text: 'Compartir',
-      icon: 'share-outline',
-      handler: () => this.onShareArticle(),
-    };
+    const articleInFavorite = this.storageService.articleInFavorite(this.article);
 
-    const normalBtns: ActionSheetButton[] = [
+    const buttons: ActionSheetButton[] = [
       {
         text: articleInFavorite ? 'Remover Favorito' : 'Favorito',
         icon: articleInFavorite ? 'heart' : 'heart-outline',
@@ -56,59 +44,73 @@ export class ArticleComponent  implements OnInit {
       },
     ];
 
-    if (this.platfform.is('capacitor')) {
-      normalBtns.unshift(shareBtn);
+    // Verificar si la API Web Share está disponible o si es una plataforma nativa
+    if (navigator.share !== undefined || Capacitor.isNativePlatform()) {
+      buttons.unshift({
+        text: 'Compartir',
+        icon: 'share-outline',
+        handler: () => this.onShareArticle(),
+      });
     }
 
     const actionSheet = await this.actionSheetCtrl.create({
       header: 'Opciones',
-      buttons: normalBtns,
+      buttons,
     });
 
     await actionSheet.present();
   }
 
-
-  onShareArticle()
-  {
-    this.socialShare.share(
-      this.article?.title,
-      this.article?.source.name,
-      undefined,
-      this.article?.url
-    );
-  }
-
-  onToggleFavorite()
-  {
-    if (this.article)
-    {
-      this.storageService.saveRemoveArticle(this.article);
-    }
-    else
-    {
-      console.error("Error: article es undefined");
-    }
-  }
-
-  openArticle()
-  {
-    if (this.platfform.is('ios') || this.platfform.is('android'))
-    {
-      if (this.article?.url) {  // Verificamos que la URL existe
-        const browser = InAppBrowser.create(this.article.url, '_system');
-        browser.show();
-      } else {
-        console.error('La URL no está definida');
-      }
+  async onShareArticle() {
+    if (!this.article?.url) {
+      console.error('Error: no hay URL para compartir.');
       return;
     }
-    else
-    {
-      window.open(this.article?.url, '_blank');
-    }
 
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await Share.share({
+          title: this.article.title || 'Artículo',
+          text: this.article.description || '',
+          url: this.article.url,
+          dialogTitle: 'Compartir artículo',
+        });
+      } else if (navigator.share) {
+        await navigator.share({
+          title: this.article.title || 'Artículo',
+          text: this.article.description || '',
+          url: this.article.url,
+        });
+      } else {
+        alert('Tu navegador no admite compartir contenido.');
+      }
+    } catch (error) {
+      console.error('Error al compartir:', error);
+    }
   }
 
+  onToggleFavorite() {
+    if (!this.article) {
+      console.error("Error: article es undefined");
+      return;
+    }
+    this.storageService.saveRemoveArticle(this.article);
+  }
 
+  async openArticle() {
+    if (!this.article?.url) {
+      console.error('La URL no está definida');
+      return;
+    }
+
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await Browser.open({ url: this.article.url });
+      } else {
+        window.open(this.article.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Error al abrir el artículo:', error);
+    }
+  }
 }
